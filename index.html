@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Jovian Games: games, engines and AI research</title>
+    <meta
+      name="description"
+      content="Jovian Games builds games, the engine they run on, and AI that learns to play them: Jovian Engine, Cards Against The Humanity, and our ARC-AGI-3 research on Kaggle."
+    />
+    <link rel="canonical" href="https://joviangame.me/" />
+    <meta name="theme-color" content="#0b0a08" />
+    <meta name="color-scheme" content="dark" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Jovian Games" />
+    <meta property="og:title" content="Jovian Games: games, engines and AI research" />
+    <meta
+      property="og:description"
+      content="A DirectX 12 engine built from scratch, a party game that turns any TV into a table, and an agent competing in ARC-AGI-3."
+    />
+    <meta property="og:url" content="https://joviangame.me/" />
+    <meta property="og:image" content="https://joviangame.me/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Jovian Games: the edge of a banded gas giant under the studio’s wordmark" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/martian-mono-latin.woff2" as="font" type="font/woff2" crossorigin />
+
+    <script>
+      // Before first paint: enable the JS-only reveal states, and restore the
+      // visitor's choice to pause ambient motion. If the app hasn't booted after
+      // a few seconds, the page drops back to its no-JS rendering, so nothing
+      // (text or images) stays hidden waiting for it.
+      ;(function () {
+        var root = document.documentElement
+        root.classList.remove('no-js')
+        root.classList.add('js')
+        try {
+          var motion = localStorage.getItem('jovian:motion')
+          if (motion === 'paused' || motion === 'playing') root.dataset.motion = motion
+        } catch (e) {}
+        setTimeout(function () {
+          if (!window.__jovianReady) root.classList.replace('js', 'no-js')
+        }, 4000)
+      })()
+    </script>
+
+    <!-- schema.org JSON-LD, generated from src/content at build time (scripts/prerender.mjs) -->
+    <!--structured-data-->
+  </head>
+  <body>
+    <div id="root"><!--app-html--></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+dist-ssr/
+*.log
+
+# Per-user Claude Code settings
+.claude/settings.local.json
