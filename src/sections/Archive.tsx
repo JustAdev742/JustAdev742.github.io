@@ -7,10 +7,10 @@ import { addTransitionType, startTransition, useCallback, useEffect, useRef, use
 import { m, useMotionValue, useReducedMotion, useSpring } from 'motion/react'
 import { filters, projects, type Project, type ProjectFilter } from '../content/projects'
 import { preloadOverlays, useUI } from '../app/ui'
-import { FINE_POINTER, useMediaQuery } from '../hooks/useMediaQuery'
+import { FINE_POINTER, TABLET_UP, useMediaQuery } from '../hooks/useMediaQuery'
 import { cn } from '../lib/cn'
 import { ArrowRight } from '../components/ui/Icon'
-import { Picture } from '../components/ui/Picture'
+import { Picture, StillPicture } from '../components/ui/Picture'
 import { Eyebrow, Lines, reveal, Section } from '../components/ui/Section'
 import { StatusChip } from '../components/ui/StatusChip'
 
@@ -23,13 +23,33 @@ const SKEW_FACTOR = 0.1
 
 type Source = 'pointer' | 'focus' | null
 
+/**
+ * A touch screen has no cursor to carry the preview, so each row shows its own
+ * picture instead, and that picture grows into the sheet when the row opens.
+ * Hidden where the cursor preview takes over (a mouse on a wide screen). A
+ * project without a picture shows nothing rather than an empty frame.
+ */
+function Thumb({ project, open }: { project: Project; open: boolean }) {
+  if (!project.media) return null
+  return (
+    <span aria-hidden="true" className="frame relative block aspect-[16/10] w-16 shrink-0 overflow-hidden rounded-[var(--radius-frame)] bg-surface-2 sm:w-20 md:pointer-fine:hidden">
+      {open ? null : (
+        <ViewTransition name={`media-thumb-${project.id}`} share="morph" default="none">
+          <StillPicture id={project.media.id} sizes="80px" className="size-full" />
+        </ViewTransition>
+      )}
+    </span>
+  )
+}
+
 export function Archive() {
   const {
-    state: { projectId },
+    state: { projectId, projectOrigin },
     actions: { openProject },
   } = useUI()
   const reduced = useReducedMotion()
   const fine = useMediaQuery(FINE_POINTER)
+  const wide = useMediaQuery(TABLET_UP)
   const [filter, setFilter] = useState<ProjectFilter | 'all'>('all')
   const [active, setActive] = useState<{ id: string; source: Source; origin: string } | null>(null)
   const list = useRef<HTMLDivElement>(null)
@@ -187,7 +207,8 @@ export function Archive() {
                   <button
                     type="button"
                     aria-haspopup="dialog"
-                    onClick={() => openProject(project.id, 'archive')}
+                    // The picture that morphs into the sheet: the cursor preview, or the row's own thumbnail.
+                    onClick={() => openProject(project.id, fine && wide ? 'archive' : 'thumb')}
                     onPointerEnter={(event) => {
                       if (!fine || event.pointerType !== 'mouse') return
                       // Arriving from outside the list: start the preview at the cursor, not where it last was.
@@ -205,8 +226,9 @@ export function Archive() {
                     onFocus={(event) => activate(project, 'focus', event.currentTarget)}
                     className="group grid w-full cursor-pointer grid-cols-4 items-baseline gap-x-[var(--gutter)] gap-y-1 py-5 text-left md:grid-cols-12 md:py-6"
                   >
-                    <span className="col-span-4 flex items-baseline gap-3 md:col-span-5">
+                    <span className="col-span-4 flex items-center justify-between gap-4 md:col-span-5">
                       <span className="text-h3 font-semibold tracking-[-0.015em] transition-transform duration-300 ease-[var(--ease-out)] group-hover:translate-x-1">{project.name}</span>
+                      <Thumb project={project} open={projectId === project.id && projectOrigin === 'thumb'} />
                     </span>
                     {' '}
                     <span className="col-span-4 text-small text-fg-muted md:col-span-3">{project.kind}</span>{' '}

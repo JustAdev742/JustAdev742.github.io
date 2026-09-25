@@ -17,8 +17,21 @@ export function useRevealObserver() {
       },
       { rootMargin: '0px 0px -12% 0px', threshold: 0.12 },
     )
-    const observe = (root: ParentNode) =>
+    // The engine story's small-screen crops push in once a frame is mostly in view.
+    const crops = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          entry.target.classList.add('is-in')
+          crops.unobserve(entry.target)
+        }
+      },
+      { threshold: 0.6 },
+    )
+    const observe = (root: ParentNode) => {
       root.querySelectorAll('[data-reveal]:not(.is-in)').forEach((el) => observer.observe(el))
+      root.querySelectorAll('[data-crop]:not(.is-in)').forEach((el) => crops.observe(el))
+    }
     observe(document)
 
     // Content rendered later (filters, tabs) is picked up as it arrives.
@@ -36,6 +49,7 @@ export function useRevealObserver() {
 
     return () => {
       observer.disconnect()
+      crops.disconnect()
       mutations.disconnect()
     }
   }, [])

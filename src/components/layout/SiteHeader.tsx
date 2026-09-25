@@ -53,7 +53,8 @@ export function SiteHeader() {
       <div className="shell flex h-[var(--header-h)] items-center justify-between gap-6">
         <a href="#top" className="press -ml-2 flex min-h-11 items-center gap-3 rounded-[var(--radius-control)] px-2" aria-label="Jovian Games, back to the top">
           <Mark size={22} className="text-fg" />
-          <Wordmark className="text-[0.8125rem] leading-none" />
+          {/* Under 320px (folding phones' cover screens) the mark stands alone; the link keeps its name. */}
+          <Wordmark className="text-[0.8125rem] leading-none max-[320px]:hidden" />
         </a>
 
         <nav aria-label="Sections" className="relative hidden lg:block">

@@ -55,7 +55,7 @@ const BOUNDARY = /[\s\-_/.:]/
 
 /** Subsequence match that rewards word starts and runs (from the 21st palette). */
 function scoreOne(text: string, query: string): number {
-  const t = text.toLowerCase()
+  const t = text.toLowerCase().replace(/\u00a0/g, ' ')
   let cursor = 0
   let total = 0
   let streak = 0

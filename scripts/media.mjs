@@ -15,22 +15,25 @@ const SRC = join(ROOT, 'media-src')
 const OUT = join(ROOT, 'public', 'media')
 const MANIFEST = join(ROOT, 'src', 'content', 'media.gen.ts')
 
-/** ui: interface screenshots keep crisp text, so they get a higher quality. */
+/**
+ * ui: interface screenshots keep crisp text, so they get a higher quality.
+ * thumb: also cut a 320px version, for the archive's thumbnails on touch screens.
+ */
 const IMAGES = [
-  { id: 'engine-editor', file: 'engine-editor.png', widths: [800, 1200, 1600], ui: true },
+  { id: 'engine-editor', file: 'engine-editor.png', widths: [800, 1200, 1600], ui: true, thumb: true },
   { id: 'engine-table', file: 'engine-table.jpg', widths: [800, 1200, 1600] },
-  { id: 'engine-hand', file: 'engine-hand.jpg', widths: [800, 1200, 1600] },
+  { id: 'engine-hand', file: 'engine-hand.jpg', widths: [800, 1200, 1600], thumb: true },
   { id: 'engine-judging', file: 'engine-judging.jpg', widths: [800, 1200, 1600] },
-  { id: 'engine-skyward', file: 'engine-skyward.jpg', widths: [640, 1024, 1600] },
-  { id: 'cards-tv-lobby', file: 'cards-tv-lobby.png', widths: [800, 1280, 1920, 2560], ui: true },
+  { id: 'engine-skyward', file: 'engine-skyward.jpg', widths: [640, 1024, 1600], thumb: true },
+  { id: 'cards-tv-lobby', file: 'cards-tv-lobby.png', widths: [800, 1280, 1920, 2560], ui: true, thumb: true },
   { id: 'cards-tv-reveal', file: 'cards-tv-reveal.png', widths: [800, 1280, 1920, 2560], ui: true },
   { id: 'cards-tv-winner', file: 'cards-tv-winner.png', widths: [800, 1280, 1920], ui: true },
   { id: 'cards-phone-judge', file: 'cards-phone-judge.png', widths: [390, 780, 1170], ui: true },
-  { id: 'voxel-sunset', file: 'voxel-sunset.png', widths: [640, 1280] },
+  { id: 'voxel-sunset', file: 'voxel-sunset.png', widths: [640, 1280], thumb: true },
   { id: 'voxel-gameplay', file: 'voxel-gameplay.png', widths: [640, 1280] },
-  { id: 'sunburn-poster', file: 'sunburn-poster.png', widths: [600, 1000, 1348], ui: true },
+  { id: 'sunburn-poster', file: 'sunburn-poster.png', widths: [600, 1000, 1348], ui: true, thumb: true },
   { id: 'sunburn-wiring', file: 'sunburn-wiring.png', widths: [800, 1600], ui: true },
-  { id: 'neurogrip-watch', file: 'neurogrip-watch.png', widths: [420, 840, 1260], ui: true },
+  { id: 'neurogrip-watch', file: 'neurogrip-watch.png', widths: [420, 840, 1260], ui: true, thumb: true },
 ]
 
 await rm(OUT, { recursive: true, force: true })
@@ -40,7 +43,8 @@ const entries = []
 for (const image of IMAGES) {
   const input = join(SRC, image.file)
   const { width, height } = await sharp(input).metadata()
-  const widths = [...new Set(image.widths.map((w) => Math.min(w, width)))]
+  const main = [...new Set(image.widths.map((w) => Math.min(w, width)))]
+  const widths = image.thumb ? [320, ...main] : main
   const avif = []
   const webp = []
 
@@ -60,7 +64,7 @@ for (const image of IMAGES) {
   }
 
   const tiny = await sharp(input).resize({ width: 24 }).blur(1.2).webp({ quality: 40 }).toBuffer()
-  const mid = widths[Math.min(1, widths.length - 1)]
+  const mid = main[Math.min(1, main.length - 1)]
   entries.push({
     id: image.id,
     width,

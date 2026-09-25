@@ -18,3 +18,4 @@ export function useMediaQuery(query: string): boolean {
 
 export const FINE_POINTER = '(hover: hover) and (pointer: fine)'
 export const DESKTOP = '(min-width: 1024px)'
+export const TABLET_UP = '(min-width: 768px)'

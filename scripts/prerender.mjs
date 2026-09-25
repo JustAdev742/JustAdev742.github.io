@@ -15,7 +15,15 @@ const dist = join(root, 'dist')
 const ssrEntry = join(root, 'dist-ssr', 'entry-server.js')
 
 const { render, structuredData, llmsText, BUILD_DATE } = await import(pathToFileURL(ssrEntry).href)
-const template = await readFile(join(dist, 'index.html'), 'utf8')
+const built = await readFile(join(dist, 'index.html'), 'utf8')
+
+// The stylesheet is small (about 12 kB compressed), so it goes inline: the first
+// paint no longer waits on a second request.
+const cssLink = built.match(/<link rel="stylesheet"[^>]*href="\/(assets\/[^"]+\.css)"[^>]*>/)
+if (!cssLink) throw new Error('dist/index.html has no stylesheet link')
+const css = await readFile(join(dist, cssLink[1]), 'utf8')
+const template = built.replace(cssLink[0], () => `<style>${css}</style>`)
+
 const marker = '<!--app-html-->'
 const dataMarker = '<!--structured-data-->'
 for (const m of [marker, dataMarker]) if (!template.includes(m)) throw new Error(`dist/index.html is missing ${m}`)
@@ -42,6 +50,7 @@ const notFound = template
   .replace(/<link rel="canonical"[^>]*>/, '<meta name="robots" content="noindex" />')
   .replace(/<title>[^<]*<\/title>/, '<title>Jovian Games: page not found</title>')
   .replace(/<script type="module"[^>]*><\/script>/, '')
+  .replace(/<link rel="modulepreload"[^>]*>/g, '')
   .replace(
     '<div id="root"></div>',
     `<main id="root" style="min-height:100dvh;display:grid;place-items:center;padding:2rem;font-family:var(--font-sans);color:var(--fg);background:var(--canvas)">

@@ -120,7 +120,8 @@ export const projects: Project[] = [
   },
   {
     id: 'cards-3d',
-    name: 'Cards Against The Humanity — 3D',
+    // Non-breaking around the dash, so a narrow line never strands "3D" on its own.
+    name: 'Cards Against The Humanity\u00a0—\u00a03D',
     kind: 'Engine sample',
     filters: ['engine', 'games'],
     year: '2026',

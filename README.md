@@ -46,9 +46,23 @@ npm run preview
 
 The project then appears in the index (⌘K / Ctrl K), the archive, its own detail sheet at `?project=<id>`, the structured data and `/llms.txt`.
 
+## Fonts
+
+The page preloads two small subsets, `public/fonts/archivo-core.woff2` and `martian-mono-core.woff2`, holding only the characters the site uses (about 40% smaller than the full latin files). The full files stay declared underneath them. Any other character, such as an accented name in a new project, still renders in the right font, because the browser downloads the full file when a page needs it.
+
+Adding a character to the core subsets is optional: it only saves that download. To add one:
+
+1. Install `fonttools` and `brotli` for Python.
+2. Add the code point to the `unicode-range` of both core faces in `src/styles/index.css`.
+3. Run the same range through `pyftsubset` for each font, for example:
+
+```bash
+pyftsubset public/fonts/archivo-latin.woff2 --unicodes="U+0020-007E,U+00A0,U+00A9,U+00B0,U+00B2,U+00B7,U+00D7,U+00F7,U+2013-2014,U+2019,U+201C-201D,U+2026,U+2191-2193,U+2197,U+2265" --layout-features='*' --flavor=woff2 --output-file=public/fonts/archivo-core.woff2
+```
+
 ## Deploy
 
-`.github/workflows/deploy.yml` builds and deploys to GitHub Pages on every push to `main`. It needs one setting: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The custom domain comes from `public/CNAME`.
+`.github/workflows/deploy.yml` builds and deploys to GitHub Pages on every push to `main`. It relies on one repository setting, already in place: **Settings → Pages → Build and deployment → Source: GitHub Actions**. The custom domain comes from `public/CNAME`.
 
 ## Licences
 

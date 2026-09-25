@@ -4,9 +4,11 @@ import { cn } from '../../lib/cn'
 import { createAtmosphere, type Atmosphere } from './atmosphere'
 
 /**
- * The live planet. Starts after first paint (idle time), cross-fades in over
- * the static poster, and only draws while it is on screen, the tab is
- * visible, and the visitor hasn't paused motion.
+ * The live planet. Starts after first paint (idle time), compiles its shader
+ * without blocking the page, cross-fades in over the static poster, and only
+ * draws while it is on screen, the tab is visible, and the visitor hasn't
+ * paused motion. If the GPU drops the context (phones do, under pressure), the
+ * poster shows until the context comes back, then the planet is rebuilt.
  */
 export function AtmosphereCanvas({ className }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -18,13 +20,14 @@ export function AtmosphereCanvas({ className }: { className?: string }) {
     const canvas = canvasRef.current
     if (!canvas) return
     let cancelled = false
+    let cancelCreate = () => {}
 
     const init = () => {
       if (cancelled) return
-      const instance = createAtmosphere(canvas)
-      if (!instance) return
-      atmosphere.current = instance
-      setReady(true)
+      cancelCreate = createAtmosphere(canvas, (instance) => {
+        atmosphere.current = instance
+        setReady(true)
+      })
     }
     const idle = window.requestIdleCallback
       ? window.requestIdleCallback(init, { timeout: 600 })
@@ -34,18 +37,25 @@ export function AtmosphereCanvas({ className }: { className?: string }) {
     resize.observe(canvas)
 
     const onLost = (event: Event) => {
+      // preventDefault asks the browser to restore the context when it can.
       event.preventDefault()
+      cancelCreate()
       atmosphere.current?.stop()
+      atmosphere.current = null
       setReady(false)
     }
+    const onRestored = () => init()
     canvas.addEventListener('webglcontextlost', onLost)
+    canvas.addEventListener('webglcontextrestored', onRestored)
 
     return () => {
       cancelled = true
+      cancelCreate()
       if (window.cancelIdleCallback) window.cancelIdleCallback(idle)
       else window.clearTimeout(idle)
       resize.disconnect()
       canvas.removeEventListener('webglcontextlost', onLost)
+      canvas.removeEventListener('webglcontextrestored', onRestored)
       atmosphere.current?.destroy()
       atmosphere.current = null
     }

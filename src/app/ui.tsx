@@ -1,4 +1,5 @@
-import { addTransitionType, createContext, startTransition, use, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { addTransitionType, createContext, startTransition, use, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { projectById } from '../content/projects'
 
 // Page-level UI state: the project index (⌘K) and the project sheet. The
@@ -7,7 +8,7 @@ import { projectById } from '../content/projects'
 type OpenedBy = 'keyboard' | 'pointer'
 
 /** Where a project sheet was opened from, so its image can morph back to it. */
-export type SheetOrigin = 'lab' | 'archive' | 'studio' | 'index'
+export type SheetOrigin = 'lab' | 'archive' | 'thumb' | 'studio' | 'index'
 
 interface UIState {
   indexOpen: boolean
@@ -19,7 +20,8 @@ interface UIActions {
   openIndex: (by: OpenedBy) => void
   closeIndex: () => void
   openProject: (id: string, origin: SheetOrigin) => void
-  closeProject: () => void
+  /** `after` runs once the sheet has gone and focus has been handed back. */
+  closeProject: (after?: () => void) => void
 }
 
 interface UIContextValue {
@@ -40,6 +42,13 @@ function sheetUrl(id: string | null) {
   return url
 }
 
+// WebKit (Safari, and every browser on iOS) crashed in testing when a closing
+// sheet's picture morphed back into the page. The opening morph and the sheet's
+// slide-out are fine, so there the sheet slides away and the picture waits in place.
+function canMorphBack() {
+  return navigator.vendor !== 'Apple Computer, Inc.'
+}
+
 function readSheetState(): SheetHistory | null {
   const state = window.history.state as SheetHistory | null
   return state && typeof state.project === 'string' ? state : null
@@ -49,6 +58,9 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [indexOpen, setIndexOpen] = useState(false)
   const [projectId, setProjectId] = useState<string | null>(null)
   const [projectOrigin, setProjectOrigin] = useState<SheetOrigin>('index')
+  // Set while the page's own close (button, Escape, scrim) steps back through history.
+  const closingFromPage = useRef(false)
+  const afterClose = useRef<(() => void) | null>(null)
 
   const actions = useMemo<UIActions>(
     () => ({
@@ -78,10 +90,14 @@ export function UIProvider({ children }: { children: ReactNode }) {
         if (current) window.history.replaceState({ project: id, initial: current.initial } satisfies SheetHistory, '', sheetUrl(id))
         else window.history.pushState({ project: id } satisfies SheetHistory, '', sheetUrl(id))
       },
-      closeProject: () => {
+      closeProject: (after) => {
+        afterClose.current = after ?? null
+        // Unpair the sheet's picture from the page before the close begins (see canMorphBack).
+        if (!canMorphBack()) flushSync(() => setProjectOrigin('index'))
         const state = readSheetState()
         // Opened from a history entry we pushed: step back, and popstate closes it.
         if (state && !state.initial) {
+          closingFromPage.current = true
           window.history.back()
           return
         }
@@ -99,15 +115,24 @@ export function UIProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onPopState = () => {
       const state = readSheetState()
-      startTransition(() => {
-        addTransitionType('sheet')
-        if (state && projectById.has(state.project)) {
-          setProjectOrigin('index')
-          setProjectId(state.project)
-        } else {
-          setProjectId(null)
-        }
-      })
+      const apply = () =>
+        startTransition(() => {
+          addTransitionType('sheet')
+          if (state && projectById.has(state.project)) {
+            setProjectOrigin('index')
+            setProjectId(state.project)
+          } else {
+            setProjectId(null)
+          }
+        })
+      // React applies a transition started inside popstate at once, with no view
+      // transition: right for the browser's own Back (iOS animates its swipe
+      // itself), wrong for our close button. That one steps just outside the
+      // event, so the sheet leaves the way it arrived.
+      if (closingFromPage.current) {
+        closingFromPage.current = false
+        window.setTimeout(apply, 0)
+      } else apply()
     }
     window.addEventListener('popstate', onPopState)
 
@@ -119,6 +144,16 @@ export function UIProvider({ children }: { children: ReactNode }) {
     }
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
+
+  // Work that must wait for the sheet to be gone (it made the page inert, and
+  // hands focus back as it leaves): one frame after the close has committed.
+  useEffect(() => {
+    if (projectId !== null || !afterClose.current) return
+    const run = afterClose.current
+    afterClose.current = null
+    const frame = requestAnimationFrame(run)
+    return () => cancelAnimationFrame(frame)
+  }, [projectId])
 
   const value = useMemo(
     () => ({ state: { indexOpen, projectId, projectOrigin }, actions }),

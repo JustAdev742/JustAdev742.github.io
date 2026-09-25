@@ -15,9 +15,10 @@ function NewTabNote({ href }: { href: string }) {
   return isExternal(href) ? <span className="sr-only"> (opens in a new tab)</span> : null
 }
 
+// At least 48px tall; on the narrowest screens a long label wraps inside the button instead of overflowing.
 const base =
-  'press group inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-[var(--radius-control)] ' +
-  'px-5 text-[0.9375rem] font-semibold leading-none tracking-[-0.005em] ' +
+  'press group inline-flex min-h-12 max-w-full items-center justify-center gap-2.5 rounded-[var(--radius-control)] ' +
+  'px-5 py-3 text-[0.9375rem] font-semibold leading-tight tracking-[-0.005em] ' +
   'transition-[background-color,border-color,color,transform] duration-[var(--dur-hover)] ease-out'
 
 const variants = {

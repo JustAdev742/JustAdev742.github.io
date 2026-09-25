@@ -17,15 +17,15 @@ export default function ProjectSheet() {
   return project ? <Sheet key={project.id} project={project} origin={projectOrigin} onClose={closeProject} /> : null
 }
 
-function Sheet({ project, origin, onClose }: { project: Project; origin: SheetOrigin; onClose: () => void }) {
+function Sheet({ project, origin, onClose }: { project: Project; origin: SheetOrigin; onClose: (after?: () => void) => void }) {
   const closeButton = useRef<HTMLButtonElement>(null)
   const titleId = `sheet-title-${project.id}`
   const [primary, ...secondary] = project.links
 
+  // Scroll and focus once the sheet has gone: until then the page is inert.
   const jumpToSection = () => {
-    onClose()
     const target = project.section ? document.getElementById(project.section) : null
-    requestAnimationFrame(() => {
+    onClose(() => {
       target?.scrollIntoView({ block: 'start' })
       target?.querySelector<HTMLElement>('[data-section-heading]')?.focus({ preventScroll: true })
     })
@@ -39,13 +39,14 @@ function Sheet({ project, origin, onClose }: { project: Project; origin: SheetOr
       transitionType="sheet"
       enter="sheet-in"
       exit="sheet-out"
-      className="inset-y-0 right-0 flex w-full flex-col border-l border-line bg-surface-1 md:w-[min(38rem,92vw)]"
+      className="vt-fallback-sheet inset-y-0 right-0 flex w-full flex-col border-l border-line bg-surface-1 md:w-[min(38rem,92vw)]"
+      scrimClassName="vt-fallback-fade"
     >
       <div className="flex h-[var(--header-h)] shrink-0 items-center justify-between border-b border-line pl-6 pr-2 md:pl-8">
         <p className="label">
           {project.kind} · {project.year}
         </p>
-        <IconButton ref={closeButton} label="Close project details" onClick={onClose}>
+        <IconButton ref={closeButton} label="Close project details" onClick={() => onClose()}>
           <Close size={18} />
         </IconButton>
       </div>

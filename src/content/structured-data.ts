@@ -37,7 +37,7 @@ function projectNode(project: Project) {
   return {
     ...kind,
     '@id': id(project.id),
-    name: project.name,
+    name: project.name.replace(/\u00a0/g, ' '),
     description: [project.summary, ...project.description].join(' '),
     url,
     ...(source && repo ? { codeRepository: repo } : {}),
@@ -100,7 +100,7 @@ export function llmsText(): string {
   const project = (p: Project) => {
     const text = [p.summary, ...p.description].join(' ')
     const refs = p.links.map((link) => `[${link.label}](${link.href})`).join(', ')
-    return `- **${p.name}** (${p.kind}, ${p.status.label}): ${text} Links: ${refs}.`
+    return `- **${p.name.replace(/\u00a0/g, ' ')}** (${p.kind}, ${p.status.label}): ${text} Links: ${refs}.`
   }
   return [
     '# Jovian Games',

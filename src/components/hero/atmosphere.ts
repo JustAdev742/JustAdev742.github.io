@@ -186,42 +186,90 @@ export interface Atmosphere {
   destroy: () => void
 }
 
-function compile(gl: WebGLRenderingContext, type: number, source: string) {
-  const shader = gl.createShader(type)
-  if (!shader) return null
-  gl.shaderSource(shader, source)
-  gl.compileShader(shader)
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    if (import.meta.env.DEV) console.warn(gl.getShaderInfoLog(shader))
-    gl.deleteShader(shader)
-    return null
-  }
-  return shader
-}
-
 /** Pixel budget for the drawing buffer: the atmosphere is soft, so it never needs full DPR. */
 const PIXEL_BUDGET = 900_000
+/** Without a GPU the shader runs on the CPU: one still frame, smaller, instead of a slideshow. */
+const SOFTWARE_BUDGET = 160_000
 const FRAME_MS = 1000 / 30
+/** KHR_parallel_shader_compile: query this to learn whether compiling has finished. */
+const COMPLETION_STATUS_KHR = 0x91b1
 
-export function createAtmosphere(canvas: HTMLCanvasElement, options: { preserve?: boolean } = {}): Atmosphere | null {
-  const gl = canvas.getContext('webgl', {
-    alpha: false,
-    antialias: false,
-    depth: false,
-    stencil: false,
-    powerPreference: 'low-power',
-    preserveDrawingBuffer: Boolean(options.preserve),
-  })
-  if (!gl) return null
+const attributes: WebGLContextAttributes = {
+  alpha: false,
+  antialias: false,
+  depth: false,
+  stencil: false,
+  powerPreference: 'low-power',
+}
 
-  const vs = compile(gl, gl.VERTEX_SHADER, VERTEX)
-  const fs = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT)
+// Remembered per canvas, because a restored context comes back without the probe.
+const softwareCanvases = new WeakMap<HTMLCanvasElement, boolean>()
+
+function getContext(canvas: HTMLCanvasElement) {
+  if (softwareCanvases.has(canvas)) return canvas.getContext('webgl', attributes)
+  // Ask for a hardware context first; if the only option is a software renderer, still use it, but gently.
+  let gl = canvas.getContext('webgl', { ...attributes, failIfMajorPerformanceCaveat: true })
+  const software = !gl
+  if (!gl) gl = canvas.getContext('webgl', attributes)
+  if (gl) softwareCanvases.set(canvas, software)
+  return gl
+}
+
+function shader(gl: WebGLRenderingContext, type: number, source: string) {
+  const s = gl.createShader(type)
+  if (!s) return null
+  gl.shaderSource(s, source)
+  gl.compileShader(s)
+  return s
+}
+
+/**
+ * Compiles the shader without holding up the page, then hands the running
+ * atmosphere to `onReady`. Asking whether a shader compiled forces the
+ * browser to finish compiling on the spot, so where KHR_parallel_shader_compile
+ * exists it polls the non-blocking status once a frame instead. Returns a
+ * cancel function; `onReady` never fires if WebGL is missing or fails.
+ */
+export function createAtmosphere(canvas: HTMLCanvasElement, onReady: (atmosphere: Atmosphere) => void): () => void {
+  const gl = getContext(canvas)
+  if (!gl || gl.isContextLost()) return () => {}
+  const software = softwareCanvases.get(canvas) === true
+
+  const vs = shader(gl, gl.VERTEX_SHADER, VERTEX)
+  const fs = shader(gl, gl.FRAGMENT_SHADER, FRAGMENT)
   const program = gl.createProgram()
-  if (!vs || !fs || !program) return null
+  if (!vs || !fs || !program) return () => {}
   gl.attachShader(program, vs)
   gl.attachShader(program, fs)
   gl.linkProgram(program)
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null
+
+  const parallel = gl.getExtension('KHR_parallel_shader_compile')
+  let cancelled = false
+  let poll = 0
+
+  const finish = () => {
+    if (cancelled || gl.isContextLost()) return
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      if (import.meta.env.DEV) console.warn(gl.getShaderInfoLog(vs), gl.getShaderInfoLog(fs), gl.getProgramInfoLog(program))
+      return
+    }
+    onReady(run(gl, canvas, program, software))
+  }
+  const wait = () => {
+    if (cancelled || gl.isContextLost()) return
+    if (gl.getProgramParameter(program, COMPLETION_STATUS_KHR)) finish()
+    else poll = requestAnimationFrame(wait)
+  }
+  if (parallel) wait()
+  else finish()
+
+  return () => {
+    cancelled = true
+    cancelAnimationFrame(poll)
+  }
+}
+
+function run(gl: WebGLRenderingContext, canvas: HTMLCanvasElement, program: WebGLProgram, software: boolean): Atmosphere {
   gl.useProgram(program)
 
   const buffer = gl.createBuffer()
@@ -241,13 +289,19 @@ export function createAtmosphere(canvas: HTMLCanvasElement, options: { preserve?
   let running = false
   let last = 0
   let elapsed = 0
+  // Adaptive resolution: if the GPU can't hold 30 fps, trade buffer pixels for
+  // smoothness, a step at a time. Fast devices never leave full quality.
+  let quality = 1
+  let average = FRAME_MS
+  let settle = 0
 
   const resize = () => {
     const width = canvas.clientWidth
     const height = canvas.clientHeight
     if (!width || !height) return
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    const scale = Math.min(dpr, Math.sqrt(PIXEL_BUDGET / (width * height)))
+    const budget = (software ? SOFTWARE_BUDGET : PIXEL_BUDGET) * quality
+    const scale = Math.min(dpr, Math.sqrt(budget / (width * height)))
     canvas.width = Math.round(width * scale)
     canvas.height = Math.round(height * scale)
     gl.viewport(0, 0, canvas.width, canvas.height)
@@ -278,10 +332,20 @@ export function createAtmosphere(canvas: HTMLCanvasElement, options: { preserve?
     if (!running) return
     frame = requestAnimationFrame(tick)
     const delta = now - last
-    if (delta < FRAME_MS) return
+    // A little slack, so a 120 Hz display lands on every fourth frame instead of every fifth.
+    if (delta < FRAME_MS - 2) return
     // Clamp long gaps (a hidden tab) so the planet doesn't jump when it resumes.
     elapsed += Math.min(delta, 100) / 1000
     last = now
+    // Frames arriving late, persistently, mean the GPU is the limit. Ignore
+    // stalls (a busy main thread, a tab switch) and give each change 2 s to settle.
+    if (delta < 250) average += (delta - average) * 0.08
+    if (++settle > 60 && average > FRAME_MS * 1.4 && quality > 0.3) {
+      quality = Math.max(0.3, quality * 0.72)
+      average = FRAME_MS
+      settle = 0
+      resize()
+    }
     draw()
   }
 
@@ -290,9 +354,11 @@ export function createAtmosphere(canvas: HTMLCanvasElement, options: { preserve?
 
   return {
     start() {
-      if (running) return
+      // A software renderer keeps its still frame: animating it would stall the page.
+      if (running || software) return
       running = true
       last = performance.now()
+      settle = 0
       frame = requestAnimationFrame(tick)
     },
     stop() {

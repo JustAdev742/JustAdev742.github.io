@@ -14,6 +14,8 @@ interface ModalProps {
   enter?: string
   exit?: string
   transitionType: string
+  /** Extra classes for the scrim (e.g. a CSS entrance where view transitions are missing). */
+  scrimClassName?: string
 }
 
 /**
@@ -32,6 +34,7 @@ export function Modal({
   enter = 'fade-in',
   exit = 'fade-out',
   transitionType,
+  scrimClassName,
 }: ModalProps) {
   const panel = useRef<HTMLDivElement>(null)
   const close = useRef(onClose)
@@ -74,7 +77,7 @@ export function Modal({
         exit={{ [transitionType]: 'fade-out', default: 'none' }}
         default="none"
       >
-        <div aria-hidden="true" className="fixed inset-0 z-[80] bg-black/65" onClick={() => close.current()} />
+        <div aria-hidden="true" className={cn('fixed inset-0 z-[80] bg-black/65', scrimClassName)} onClick={() => close.current()} />
       </ViewTransition>
       <ViewTransition
         enter={{ [transitionType]: enter, default: 'none' }}

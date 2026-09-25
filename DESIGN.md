@@ -58,7 +58,7 @@ Two families, each with one job (Butterick: never more than two).
 - **Martian Mono** (variable width): labels, data, specs, code. Condensed to
   87.5% width, uppercase, +0.08em tracking.
 
-Scale (fluid, `clamp`): hero 3.25→13.5rem, capped at 22svh (18svh on screens
+Scale (fluid, `clamp`): hero 2.5→13.5rem, capped at 22svh (18svh on screens
 under 30rem tall) so a landscape phone or 200% zoom still shows the tagline
 and both actions · display 2.75→7rem ·
 h2 2→3.75rem · h3 1.25→1.625rem · lead 1.125→1.375rem · body 1→1.0625rem ·
@@ -105,6 +105,16 @@ motion is slow, pausable, and stops off-screen. Every dialog shares one scrim
 View transitions are scoped by type: archive rows animate for filter changes
 only. `prefers-reduced-motion` swaps every movement for a short cross-fade,
 keeps the header in place, and renders a still frame of the atmosphere.
+
+## Every screen, every engine
+
+Effects have an equivalent wherever their trigger doesn't exist:
+
+- **Touch screens**: archive rows carry their own thumbnail (the cursor preview needs a mouse), and it grows into the sheet when the row opens; The Settling's echo plays once the tile is in view instead of on hover.
+- **Small screens**: the engine story isn't pinned, so each step makes the stage's camera move itself, from the whole editor to its region, as it scrolls into view.
+- **Browsers without typed view transitions** (Chromium before 125, Safari before 18.2, Firefox before 144): the sheet and its scrim still animate in, with plain CSS.
+- **WebKit** (Safari, and every browser on iOS): a closing sheet's picture doesn't morph back into the page, because that crashed WebKit in testing. The sheet still slides out.
+- **The planet**: compiles its shader without blocking the page and lowers its own resolution if a GPU can't hold 30 fps. On a software renderer it draws a single still frame, and it rebuilds itself if the GPU drops its context.
 
 ## Accessibility
 

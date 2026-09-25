@@ -31,8 +31,8 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/martian-mono-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/archivo-core.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/martian-mono-core.woff2" as="font" type="font/woff2" crossorigin />
 
     <script>
       // Before first paint: enable the JS-only reveal states, and restore the
@@ -43,6 +43,9 @@
         var root = document.documentElement
         root.classList.remove('no-js')
         root.classList.add('js')
+        // iOS only shows :active press states where a touch listener exists; the
+        // dialogs render outside React's root, so listen on the whole document.
+        document.addEventListener('touchstart', function () {}, { passive: true })
         try {
           var motion = localStorage.getItem('jovian:motion')
           if (motion === 'paused' || motion === 'playing') root.dataset.motion = motion

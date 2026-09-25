@@ -25,6 +25,21 @@ interface PictureProps {
 }
 
 /**
+ * The same sources with no placeholder and no state: for small pictures (the
+ * archive's thumbnails) where a fade-in isn't worth hydrating a component.
+ */
+export function StillPicture({ id, sizes, className }: { id: MediaId; sizes: string; className?: string }) {
+  const asset = media[id]
+  return (
+    <picture className={cn('block', className)}>
+      <source type="image/avif" srcSet={withBase(asset.avif)} sizes={sizes} />
+      <source type="image/webp" srcSet={withBase(asset.webp)} sizes={sizes} />
+      <img src={BASE + asset.src} alt="" width={asset.width} height={asset.height} loading="lazy" decoding="async" className="size-full object-cover object-top" />
+    </picture>
+  )
+}
+
+/**
  * AVIF with a WebP fallback, intrinsic size reserved up front, and a blurred
  * 24px placeholder that the real image fades over once it has decoded.
  */

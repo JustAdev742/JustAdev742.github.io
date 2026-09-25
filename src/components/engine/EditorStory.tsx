@@ -1,9 +1,10 @@
 // The engine told through its own editor. On large screens the screenshot
 // stays pinned while the steps scroll past; each step zooms the stage to the
 // part of the editor it describes. On smaller screens each step carries its
-// own crop instead, so nothing is pinned and nothing is lost.
+// own copy of the screenshot and makes the same camera move as it comes into
+// view, so nothing is pinned and nothing is lost.
 
-import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { m, useReducedMotion } from 'motion/react'
 import { media } from '../../content/media.gen'
 import { Picture } from '../ui/Picture'
@@ -144,12 +145,17 @@ function Step({ index, label, title, children, region, alt }: StepProps) {
       aria-current={current ? 'step' : undefined}
       className="flex flex-col gap-6 lg:min-h-[66vh] lg:justify-center"
     >
-      <div className="frame overflow-hidden lg:hidden" style={{ aspectRatio: `${editor.width} / ${editor.height}` }}>
-        <div
-          className="absolute inset-0 origin-top-left"
-          style={{ transform: `translate(${x}%, ${y}%) scale(${zoom})` }}
-        >
-          <Picture id="engine-editor" alt={alt} sizes="100vw" className="size-full" />
+      {/* The whole editor first, then a push in to this step's region once the
+          frame is mostly in view: plain CSS, see .story-crop. With reduced motion
+          or no JavaScript the crop is simply there. */}
+      <div
+        data-crop=""
+        className="frame overflow-hidden lg:hidden"
+        style={{ aspectRatio: `${editor.width} / ${editor.height}`, '--crop': `translate(${x}%, ${y}%) scale(${zoom})` } as CSSProperties}
+      >
+        <div className="story-crop absolute inset-0 origin-top-left">
+          {/* One size for every crop, so the page fetches the screenshot once and zoomed text stays sharp. */}
+          <Picture id="engine-editor" alt={alt} sizes="250vw" className="size-full" />
         </div>
       </div>
       {/* Emphasis moves with colour, not opacity, so every step keeps AA contrast. */}
